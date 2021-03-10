@@ -47,7 +47,7 @@ npx hardhat test --network hardhat
 JSON files will be placed in `./abi` directory.
 
 ```sh
-npx hardhat abi
+npx hardhat run scripts/abi.js
 ```
 
 ### Deploying - both contracts

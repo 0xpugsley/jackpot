@@ -89,7 +89,7 @@ task("fund-link", "Funds a contract with LINK")
         console.log(
           "Contract ",
           contractAddr,
-          " funded with 1 LINK. Transaction Hash: ",
+          " funded with 10 LINK. Transaction Hash: ",
           transaction.hash
         );
       });
