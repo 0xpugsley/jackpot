@@ -3,15 +3,17 @@
 pragma solidity ^0.6.7;
 
 import "@chainlink/contracts/src/v0.6/VRFConsumerBase.sol";
-import "./RandomConsumer.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "./JackpotInterface.sol";
 
-contract RandomVRF is RandomConsumer, VRFConsumerBase {
-    bytes32 internal keyHash;
-    uint256 internal fee;
+contract RandomVRF is VRFConsumerBase, Ownable {
+    bytes32 public keyHash;
+    uint256 public fee;
 
-    address public owner;
+    address public lottery;
+    address public vrfCoordinator;
 
-    uint256 private randomResult;
+    uint256 public randomResult;
 
     /**
      * Constructor inherits VRFConsumerBase
@@ -33,19 +35,22 @@ contract RandomVRF is RandomConsumer, VRFConsumerBase {
             _link // LINK Token
         )
     {
-        owner = msg.sender;
         keyHash = _keyHash;
         fee = _fee;
+        vrfCoordinator = _vrfCoordinator;
     }
 
+    function setJackpotAddress(address _jackpotAddress) public onlyOwner {
+        lottery = _jackpotAddress;
+    }
     /**
      * Requests randomness from a user-provided seed
      */
     function getRandomNumber(uint256 userProvidedSeed)
         public
-        override
         returns (bytes32 requestId)
     {
+        require(msg.sender == lottery, "Only lotery contract can call this");
         require(
             LINK.balanceOf(address(this)) > fee,
             "Not enough LINK - fill contract with faucet"
@@ -61,21 +66,15 @@ contract RandomVRF is RandomConsumer, VRFConsumerBase {
         internal
         override
     {
+        require(
+            msg.sender == vrfCoordinator,
+            "Fulillment only permitted by Coordinator"
+        );
         randomResult = randomness;
+        JackpotInterface(lottery).fulfilRandomNumber(randomness);
     }
 
-    function getRandomResult() override external view returns (uint256) {
-        return randomResult;
-    }
-
-    /**
-     * Withdraw LINK from this contract
-     *
-     * DO NOT USE THIS IN PRODUCTION AS IT CAN BE CALLED BY ANY ADDRESS.
-     * THIS IS PURELY FOR EXAMPLE PURPOSES.
-     */
-    function withdrawLink() external {
-        require(msg.sender == owner);
+    function withdrawLink() external onlyOwner {
         require(
             LINK.transfer(msg.sender, LINK.balanceOf(address(this))),
             "Unable to transfer"

@@ -15,24 +15,24 @@ describe("Jackpot contract", function () {
   const threshold = 10;
 
   beforeEach(async function () {
-    Jackpot = await ethers.getContractFactory("Jackpot");
+    const Jackpot = await ethers.getContractFactory("Jackpot");
     [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
 
     const RandomFactory = await ethers.getContractFactory("RandomKeccak");
-    randomMockContract = await smockit(RandomFactory);
 
-    jackPotContract = await Jackpot.deploy(
-      randomMockContract.address,
-      price,
-      threshold
-    );
+    jackPotContract = await Jackpot.deploy(price, threshold);
 
     await jackPotContract.deployed();
+
+    randomMockContract = await smockit(RandomFactory);
 
     randomMockContract.smocked.getRandomNumber.will.return.with(
       ethers.utils.formatBytes32String("abc")
     );
-    randomMockContract.smocked.getRandomResult.will.return.with(threshold / 2);
+
+    //randomMockContract.smocked.fulfilRandomNumber.will.return();
+
+    await jackPotContract.setRngAddress(randomMockContract.address);
   });
 
   describe("Deployment", function () {
@@ -40,7 +40,7 @@ describe("Jackpot contract", function () {
       expect(await jackPotContract.owner()).to.equal(owner.address);
     });
 
-    it("Pool balance shoul be 0 after deployment", async function () {
+    it("Pool balance should be 0 after deployment", async function () {
       const ownerBalance = await jackPotContract.getLotteryBalance();
       expect(ownerBalance).to.equal(0);
     });
@@ -64,40 +64,49 @@ describe("Jackpot contract", function () {
 
     it("Should fail if player has no ticket", async function () {
       expect(jackPotContract.connect(addr1).drawLots()).to.be.revertedWith(
-        "Player has no ticket"
+        "The player has no ticket for this edition"
       );
     });
 
     it("Should win the lottery", async function () {
       await jackPotContract.connect(addr1).buyTicket({ value: price });
-
+      await jackPotContract.connect(addr1).roll();
+      await jackPotContract.fulfillRandomNumber(threshold / 2);
       await jackPotContract.connect(addr1).drawLots();
       const balance = await jackPotContract.getLotteryBalance();
       expect(balance).be.equal(0);
     });
 
     it("Should not win the lottery", async function () {
-
-      randomMockContract.smocked.getRandomResult.will.return.with(1);
-
       await jackPotContract.connect(addr1).buyTicket({ value: price });
+      await jackPotContract.connect(addr1).roll();
+      await jackPotContract.fulfillRandomNumber(1);
       await jackPotContract.connect(addr1).drawLots();
       const balance = await jackPotContract.getLotteryBalance();
       expect(balance).be.equal(price);
     });
 
-    it("Should fial if the edition was incremented, someone has already won", async function () {
+    it("Should fail if the edition was incremented, someone has already won", async function () {
       await jackPotContract.connect(addr1).buyTicket({ value: price });
       await jackPotContract.connect(addr2).buyTicket({ value: price });
 
+      await jackPotContract.connect(addr1).roll();
+      await jackPotContract.fulfillRandomNumber(threshold / 2);
       // addr1 wins
       await jackPotContract.connect(addr1).drawLots();
       // addr2 should not be able to draw
       expect(jackPotContract.connect(addr2).drawLots()).be.revertedWith(
-        "Player has no ticket for that edition"
+        "The player has no ticket for this edition"
       );
 
       expect(await jackPotContract.connect(addr2).edition()).be.equal(2);
+    });
+
+    it("Should fail if no rolled", async function () {
+      await jackPotContract.connect(addr1).buyTicket({ value: price });
+      expect(jackPotContract.connect(addr1).drawLots()).be.revertedWith(
+        "The player has not rolled"
+      );
     });
   });
 });

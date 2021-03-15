@@ -6,4 +6,4 @@ cache
 artifacts
 abi
 deployments
-
+.env

@@ -2,37 +2,45 @@
 
 pragma solidity ^0.6.7;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "hardhat/console.sol";
-import "./RandomConsumer.sol";
+import "./RNGInterface.sol";
 
-contract Jackpot {
+contract Jackpot is Ownable {
     using SafeMath for uint256;
 
-    address public owner;
-
     uint256 lotteryTicketPrice;
+    address public rng_address;
 
-    mapping(address => uint32) players;
+    struct Bet {
+        uint32 edition;
+        bytes32 randomId;
+        bool rolled;
+    }
+
+    mapping(address => Bet) players;
 
     uint32 public edition = 1;
 
     uint32 threshold;
 
-    RandomConsumer private randomConsumer;
+    uint256 luckyNumber;
+
+    uint256 public radnomNumber;
 
     event Win(address indexed _to, uint256 value);
     event Loss(address indexed _to);
+    event XXX(address indexed _to, uint256 value);
 
-    constructor(
-        RandomConsumer _random,
-        uint256 _lotteryTicketPrice,
-        uint32 _threshold
-    ) public {
-        owner = msg.sender;
+    constructor(uint256 _lotteryTicketPrice, uint32 _threshold) public {
         lotteryTicketPrice = _lotteryTicketPrice;
         threshold = _threshold;
-        randomConsumer = _random;
+        luckyNumber = threshold / 2;
+    }
+
+    function setRngAddress(address _rng_address) public onlyOwner {
+        rng_address = _rng_address;
     }
 
     function getLotteryBalance() public view returns (uint256) {
@@ -44,7 +52,7 @@ contract Jackpot {
     }
 
     function isRegistered(address _account) external view returns (bool) {
-        return players[_account] == edition;
+        return players[_account].edition == edition;
     }
 
     function buyTicket() public payable {
@@ -54,23 +62,42 @@ contract Jackpot {
         );
 
         require(
-            players[msg.sender] != edition,
+            players[msg.sender].edition != edition,
             "Player has already bought tikcet"
         );
 
-        players[msg.sender] = edition;
+        players[msg.sender] = Bet(edition, "", false);
+
         uint256 price = getLotteryTicketPrice();
         console.log("Bought ticket by %s for %s", msg.sender, price);
     }
 
-    function isWinner() private returns (bool) {
+    function roll() external {
+        Bet storage bet = players[msg.sender];
+        require(
+            bet.edition == edition,
+            "Player has no ticket for that edition"
+        );
+
+        require(!bet.rolled, "The player has already rolled the number");
+
         uint256 seed =
             uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender)));
-        
-        randomConsumer.getRandomNumber(seed);
-        uint256 number = randomConsumer.getRandomResult() % threshold;
 
-        if (number == SafeMath.div(threshold, 2)) {
+        bytes32 randomId = RNGInterface(rng_address).getRandomNumber(seed);
+
+        bet.randomId = randomId;
+        bet.rolled = true;
+    }
+
+    function fulfillRandomNumber(uint256 _number) external {
+        radnomNumber = _number;
+        emit XXX(msg.sender, _number);
+    }
+
+    function isWinner() private view returns (bool) {
+        uint256 number = radnomNumber % threshold;
+        if (number == luckyNumber) {
             return true;
         } else {
             return false;
@@ -78,13 +105,15 @@ contract Jackpot {
     }
 
     function drawLots() public payable {
+        Bet storage bet = players[msg.sender];
         require(
-            players[msg.sender] == edition,
-            "Player has no ticket for that edition"
+            bet.edition == edition,
+            "The player has no ticket for this edition"
         );
+        require(bet.rolled, "The player has not rolled");
         require(address(this).balance != 0, "The lottery has already been won");
 
-        players[msg.sender] = 0;
+        delete players[msg.sender];
 
         if (isWinner()) {
             edition = edition + 1;

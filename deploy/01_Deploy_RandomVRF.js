@@ -17,29 +17,25 @@ module.exports = async ({
     "0x6c3699283bda56ad74f6b855546325b68d482e983852a7a82979cc4807b641f4";
 
   LOTTERY_TICKET_PRICE = "50000000000000000";
-  LOTTERY_THERSHOLD = 3;
+  LOTTERY_THRESHOLD = 2;
+
+  const jackpot = await deploy("Jackpot", {
+    from: deployer,
+    gasLimit: 4000000,
+    args: [LOTTERY_TICKET_PRICE, LOTTERY_THRESHOLD],
+  });
+
+  console.log("Jackpot deployed to: ", jackpot.address);
 
   console.log("----------------------------------------------------");
   console.log("Deploying RandomVRF");
-  const randomNumberConsumer = await deploy('RandomVRF', {
+  const randomNumberConsumer = await deploy("RandomVRF", {
     from: deployer,
     gasLimit: 4000000,
     args: [VRF_COORDINATOR, LINK_TOKEN_ADDR, VRF_KEYHASH, VRF_FEE],
   });
 
   console.log("RandomVRF deployed to: ", randomNumberConsumer.address);
-
-  const jackpot = await deploy('Jackpot', {
-    from: deployer,
-    gasLimit: 4000000,
-    args: [
-      randomNumberConsumer.address,
-      LOTTERY_TICKET_PRICE,
-      LOTTERY_THERSHOLD,
-    ],
-  });
-
-  console.log("Jackpot deployed to: ", jackpot.address);
 
   console.log("Run the following command to fund contract with LINK:");
   console.log(
@@ -53,6 +49,13 @@ module.exports = async ({
     "npx hardhat request-random-number --contract ",
     randomNumberConsumer.address,
     " --seed '777'"
+  );
+
+  console.log(
+    "npx hardhat set-addresses --contract ",
+    jackpot.address,
+    " --rngaddr ",
+    randomNumberConsumer.address
   );
   console.log("----------------------------------------------------");
 };

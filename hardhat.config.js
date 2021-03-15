@@ -71,7 +71,7 @@ task("fund-link", "Funds a contract with LINK")
         linkContractAddr = "0xa36085F69e2889c224210F603D836748e7dC0088";
     }
     //Fund with 10 LINK token
-    const amount = web3.utils.toHex(10 * 1e18);
+    const amount = web3.utils.toHex(1e18);
 
     //Get signer information
     const accounts = await hre.ethers.getSigners();
@@ -218,8 +218,44 @@ task("buy-ticket", "Buy a ticket for the lottery")
           transaction.hash
         );
         console.log("Run the following to draw a lot");
-        console.log("npx hardhat draw-lot --contract ", contractAddr);
+        console.log("npx hardhat roll --contract ", contractAddr);
       });
+  });
+
+task("roll", "roll to generate some random number")
+  .addParam("contract", "The address of the SC")
+  .setAction(async (taskArgs) => {
+    const contractAddr = taskArgs.contract;
+    const networkId = network.name;
+    console.log(
+      "Rolling on the contract ",
+      contractAddr,
+      " on network ",
+      networkId
+    );
+
+    const jackpot = require("./abi/Jackpot.json");
+    const JACKPOT_ABI = jackpot.abi;
+    //Get signer information
+    const accounts = await hre.ethers.getSigners();
+    const signer = accounts[0];
+
+    const jackpotContract = new ethers.Contract(
+      contractAddr,
+      JACKPOT_ABI,
+      signer
+    );
+
+    var result = await jackpotContract.roll().then(function (transaction) {
+      console.log(
+        "Contract ",
+        contractAddr,
+        " external data request successfully called. Transaction Hash: ",
+        transaction.hash
+      );
+      console.log("Run the following to draw a lot");
+      console.log("npx hardhat draw-lot --contract ", contractAddr);
+    });
   });
 
 task("draw-lot", "Draw a lot in the lottery")
@@ -247,6 +283,59 @@ task("draw-lot", "Draw a lot in the lottery")
     );
 
     var result = await jackpotContract.drawLots().then(function (transaction) {
+      console.log(
+        "Contract ",
+        contractAddr,
+        " external data request successfully called. Transaction Hash: ",
+        transaction.hash
+      );
+    });
+  });
+
+task("set-addresses", "set rng address")
+  .addParam("contract", "The address of the SC")
+  .addParam("rngaddr", "The address of the SC")
+  .setAction(async (taskArgs) => {
+    const contractAddr = taskArgs.contract;
+    const rngAddr = taskArgs.rngaddr;
+    const networkId = network.name;
+    console.log(
+      "Draw a lot on the contract ",
+      contractAddr,
+      " on network ",
+      networkId
+    );
+
+    const jackpot = require("./abi/Jackpot.json");
+    const rng = require("./abi/RandomVRF.json");
+    const JACKPOT_ABI = jackpot.abi;
+    const VRF_ABI = rng.abi;
+    //Get signer information
+    const accounts = await hre.ethers.getSigners();
+    const signer = accounts[0];
+
+    const jackpotContract = new ethers.Contract(
+      contractAddr,
+      JACKPOT_ABI,
+      signer
+    );
+
+    const rngContract = new ethers.Contract(
+      rngAddr,
+      VRF_ABI,
+      signer
+    );
+
+    var result = await jackpotContract.setRngAddress(rngAddr).then(function (transaction) {
+      console.log(
+        "Contract ",
+        contractAddr,
+        " external data request successfully called. Transaction Hash: ",
+        transaction.hash
+      );
+    });
+
+    var result = await rngContract.setJackpotAddress(contractAddr).then(function (transaction) {
       console.log(
         "Contract ",
         contractAddr,

@@ -72,6 +72,11 @@ Buying the lottery ticket for i.e. 0.05 ETH
 npx hardhat buy-ticket --contract insert-contract-address-here
 ```
 
+### Roll - something like rolling a dice
+```sh
+npx hardhat roll --contract insert-contract-address-here
+```
+
 #### Drawing a lot
 
 If the draw is not be successfull the ticket will be gone.
