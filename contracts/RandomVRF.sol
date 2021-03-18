@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.7;
 
@@ -71,7 +71,7 @@ contract RandomVRF is VRFConsumerBase, Ownable {
             "Fulillment only permitted by Coordinator"
         );
         randomResult = randomness;
-        JackpotInterface(lottery).fulfilRandomNumber(randomness);
+        JackpotInterface(lottery).fulfillRandomNumber(requestId, randomness);
     }
 
     function withdrawLink() external onlyOwner {

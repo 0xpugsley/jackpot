@@ -1,11 +1,15 @@
-require("@nomiclabs/hardhat-waffle");
+import "@nomiclabs/hardhat-ethers";
+import "@nomiclabs/hardhat-web3";
+import { task, types } from "hardhat/config";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
 
-require("@eth-optimism/smock/build/src/plugins/hardhat-storagelayout");
-require("@nomiclabs/hardhat-ethers");
-require("@nomiclabs/hardhat-web3");
-require("hardhat-deploy");
+async function readArtifactAbi(name: string, hre: HardhatRuntimeEnvironment) {
+  const artifact = await hre.artifacts.readArtifact(name);
+  return artifact.abi;
+}
 
-task("accounts", "Prints the list of accounts", async () => {
+
+task("accounts", "Prints the list of accounts", async (_, { ethers }) => {
   const accounts = await ethers.getSigners();
 
   for (const account of accounts) {
@@ -15,29 +19,31 @@ task("accounts", "Prints the list of accounts", async () => {
 
 task("balance", "Prints an account's balance")
   .addParam("account", "The account's address")
-  .setAction(async (taskArgs) => {
+  .setAction(async (taskArgs, { web3 }) => {
     const account = web3.utils.toChecksumAddress(taskArgs.account);
     const balance = await web3.eth.getBalance(account);
 
     console.log(web3.utils.fromWei(balance, "ether"), "ETH");
   });
 
-module.exports = {};
 
-task("show-abis", "print SC's abis").setAction(async (taskArgs) => {
+task("show-abis", "print SC's abis").setAction(async (_, hre) => {
   const util = require("util");
-  const jackpot = require("./abi/Jackpot.json");
-  const randomVFR = require("./abi/RandomVRF.json");
+  const jackpot = await readArtifactAbi("Jackpot", hre);
+  const randomVFR = await readArtifactAbi("RandomVRF", hre);
 
-  console.log(util.inspect(jackpot.abi, { showHidden: false, depth: null }));
-  console.log(util.inspect(randomVFR.abi, { showHidden: false, depth: null }));
+  console.log(util.inspect(jackpot, { showHidden: false, depth: null }));
+  console.log(util.inspect(randomVFR, { showHidden: false, depth: null }));
 });
 
 task("fund-link", "Funds a contract with LINK")
   .addParam("contract", "The address of the contract that requires LINK")
-  .setAction(async (taskArgs) => {
+  .setAction(async (taskArgs, { web3, ethers, network }) => {
     const contractAddr = taskArgs.contract;
     const networkId = network.name;
+
+
+    let linkContractAddr;
     console.log("Funding contract ", contractAddr, " on network ", networkId);
     const LINK_TOKEN_ABI = [
       {
@@ -74,7 +80,7 @@ task("fund-link", "Funds a contract with LINK")
     const amount = web3.utils.toHex(1e18);
 
     //Get signer information
-    const accounts = await hre.ethers.getSigners();
+    const accounts = await ethers.getSigners();
     const signer = accounts[0];
 
     //Create connection to LINK token contract and initiate the transfer
@@ -109,10 +115,10 @@ task(
     777,
     types.int
   )
-  .setAction(async (taskArgs) => {
+  .setAction(async (taskArgs, hre) => {
     const contractAddr = taskArgs.contract;
     const seed = taskArgs.seed;
-    const networkId = network.name;
+    const networkId = hre.network.name;
     console.log(
       "Requesting a random number using VRF consumer contract ",
       contractAddr,
@@ -120,14 +126,13 @@ task(
       networkId
     );
 
-    const randomVFR = require("./abi/RandomVRF.json");
-    const RANDOM_NUMBER_CONSUMER_ABI = randomVFR.abi;
+    const RANDOM_NUMBER_CONSUMER_ABI = await readArtifactAbi("RandomVRF", hre);
     //Get signer information
     const accounts = await hre.ethers.getSigners();
     const signer = accounts[0];
 
     //Create connection to VRF Contract and call the getRandomNumber function
-    const vrfConsumerContract = new ethers.Contract(
+    const vrfConsumerContract = new hre.ethers.Contract(
       contractAddr,
       RANDOM_NUMBER_CONSUMER_ABI,
       signer
@@ -151,9 +156,9 @@ task(
   "Reads the random number returned to a contract by Chainlink VRF"
 )
   .addParam("contract", "The address of the VRF contract that you want to read")
-  .setAction(async (taskArgs) => {
+  .setAction(async (taskArgs, hre) => {
     const contractAddr = taskArgs.contract;
-    const networkId = network.name;
+    const networkId = hre.network.name;
     console.log(
       "Reading data from VRF contract ",
       contractAddr,
@@ -161,15 +166,13 @@ task(
       networkId
     );
 
-    const randomVFR = require("./abi/RandomVRF.json");
-
-    const RANDOM_NUMBER_CONSUMER_ABI = randomVFR.abi;
+    const RANDOM_NUMBER_CONSUMER_ABI = await readArtifactAbi("RandomVRF", hre);
     //Get signer information
     const accounts = await hre.ethers.getSigners();
     const signer = accounts[0];
 
     //Create connection to API Consumer Contract and call the createRequestTo function
-    const vrfConsumerContract = new ethers.Contract(
+    const vrfConsumerContract = new hre.ethers.Contract(
       contractAddr,
       RANDOM_NUMBER_CONSUMER_ABI,
       signer
@@ -179,16 +182,16 @@ task(
       .then(function (data) {
         console.log(
           "Random Number is: ",
-          web3.utils.hexToNumberString(data._hex)
+          hre.web3.utils.hexToNumberString(data._hex)
         );
       });
   });
 
 task("buy-ticket", "Buy a ticket for the lottery")
   .addParam("contract", "The address of the SC")
-  .setAction(async (taskArgs) => {
+  .setAction(async (taskArgs, hre) => {
     const contractAddr = taskArgs.contract;
-    const networkId = network.name;
+    const networkId = hre.network.name;
     console.log(
       "Buying a ticket on the contract ",
       contractAddr,
@@ -196,20 +199,19 @@ task("buy-ticket", "Buy a ticket for the lottery")
       networkId
     );
 
-    const jackpot = require("./abi/Jackpot.json");
-    const JACKPOT_ABI = jackpot.abi;
+    const JACKPOT_ABI = await readArtifactAbi("Jackpot", hre);
     //Get signer information
     const accounts = await hre.ethers.getSigners();
     const signer = accounts[0];
 
-    const jackpotContract = new ethers.Contract(
+    const jackpotContract = new hre.ethers.Contract(
       contractAddr,
       JACKPOT_ABI,
       signer
     );
 
     var result = await jackpotContract
-      .buyTicket({ value: ethers.utils.parseEther("0.05") })
+      .buyTicket({ value: hre.ethers.utils.parseEther("0.05") })
       .then(function (transaction) {
         console.log(
           "Contract ",
@@ -224,9 +226,9 @@ task("buy-ticket", "Buy a ticket for the lottery")
 
 task("roll", "roll to generate some random number")
   .addParam("contract", "The address of the SC")
-  .setAction(async (taskArgs) => {
+  .setAction(async (taskArgs, hre) => {
     const contractAddr = taskArgs.contract;
-    const networkId = network.name;
+    const networkId = hre.network.name;
     console.log(
       "Rolling on the contract ",
       contractAddr,
@@ -234,13 +236,12 @@ task("roll", "roll to generate some random number")
       networkId
     );
 
-    const jackpot = require("./abi/Jackpot.json");
-    const JACKPOT_ABI = jackpot.abi;
+    const JACKPOT_ABI = await readArtifactAbi("Jackpot", hre);
     //Get signer information
     const accounts = await hre.ethers.getSigners();
     const signer = accounts[0];
 
-    const jackpotContract = new ethers.Contract(
+    const jackpotContract = new hre.ethers.Contract(
       contractAddr,
       JACKPOT_ABI,
       signer
@@ -260,9 +261,9 @@ task("roll", "roll to generate some random number")
 
 task("draw-lot", "Draw a lot in the lottery")
   .addParam("contract", "The address of the SC")
-  .setAction(async (taskArgs) => {
+  .setAction(async (taskArgs, hre) => {
     const contractAddr = taskArgs.contract;
-    const networkId = network.name;
+    const networkId = hre.network.name;
     console.log(
       "Draw a lot on the contract ",
       contractAddr,
@@ -270,13 +271,12 @@ task("draw-lot", "Draw a lot in the lottery")
       networkId
     );
 
-    const jackpot = require("./abi/Jackpot.json");
-    const JACKPOT_ABI = jackpot.abi;
+    const JACKPOT_ABI = await readArtifactAbi("Jackpot", hre);
     //Get signer information
     const accounts = await hre.ethers.getSigners();
     const signer = accounts[0];
 
-    const jackpotContract = new ethers.Contract(
+    const jackpotContract = new hre.ethers.Contract(
       contractAddr,
       JACKPOT_ABI,
       signer
@@ -295,10 +295,10 @@ task("draw-lot", "Draw a lot in the lottery")
 task("set-addresses", "set rng address")
   .addParam("contract", "The address of the SC")
   .addParam("rngaddr", "The address of the SC")
-  .setAction(async (taskArgs) => {
+  .setAction(async (taskArgs, hre) => {
     const contractAddr = taskArgs.contract;
     const rngAddr = taskArgs.rngaddr;
-    const networkId = network.name;
+    const networkId = hre.network.name;
     console.log(
       "Draw a lot on the contract ",
       contractAddr,
@@ -306,21 +306,19 @@ task("set-addresses", "set rng address")
       networkId
     );
 
-    const jackpot = require("./abi/Jackpot.json");
-    const rng = require("./abi/RandomVRF.json");
-    const JACKPOT_ABI = jackpot.abi;
-    const VRF_ABI = rng.abi;
+    const JACKPOT_ABI = await readArtifactAbi("Jackpot", hre);
+    const VRF_ABI = await readArtifactAbi("RandomVRF", hre);
     //Get signer information
     const accounts = await hre.ethers.getSigners();
     const signer = accounts[0];
 
-    const jackpotContract = new ethers.Contract(
+    const jackpotContract = new hre.ethers.Contract(
       contractAddr,
       JACKPOT_ABI,
       signer
     );
 
-    const rngContract = new ethers.Contract(
+    const rngContract = new hre.ethers.Contract(
       rngAddr,
       VRF_ABI,
       signer
@@ -344,32 +342,4 @@ task("set-addresses", "set rng address")
       );
     });
   });
-
-module.exports = {
-  defaultNetwork: "kovan",
-  networks: {
-    hardhat: {
-      forking: {
-        //this env var isn't mandatory for users who want to deploy on public networks
-        url:
-          process.env.ALCHEMY_MAINNET_RPC_URL ||
-          "https://eth-mainnet.alchemyapi.io/v2/your-api-key",
-      },
-    },
-    kovan: {
-      url: process.env.KOVAN_RPC_URL,
-      accounts: [process.env.PRIVATE_KEY],
-      saveDeployments: true,
-    },
-  },
-  namedAccounts: {
-    deployer: {
-      default: 0, // here this will by default take the first account as deployer
-      1: 0, // similarly on mainnet it will take the first account as deployer. Note though that depending on how hardhat network are configured, the account 0 on one network can be different than on another
-    },
-    feeCollector: {
-      default: 1,
-    },
-  },
-  solidity: "0.6.7",
-};
+module.exports = {};

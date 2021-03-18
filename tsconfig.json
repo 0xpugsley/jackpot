@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "module": "commonjs",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noImplicitAny": false,
+    "outDir": "./dist",
+    //   "strict": true,
+    "rootDirs": ["./src", "./test", "./artifacts"],
+    "esModuleInterop": true,
+    "preserveSymlinks": true
+  },
+  "exclude": ["dist", "node_modules"],
+  "include": ["./test", "./src", "./scripts"]
+}

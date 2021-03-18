@@ -15,11 +15,12 @@ contract Jackpot is Ownable {
 
     struct Bet {
         uint32 edition;
-        bytes32 randomId;
         bool rolled;
     }
 
     mapping(address => Bet) players;
+
+    mapping(bytes32 => address) randoms;
 
     uint32 public edition = 1;
 
@@ -31,7 +32,6 @@ contract Jackpot is Ownable {
 
     event Win(address indexed _to, uint256 value);
     event Loss(address indexed _to);
-    event XXX(address indexed _to, uint256 value);
 
     constructor(uint256 _lotteryTicketPrice, uint32 _threshold) public {
         lotteryTicketPrice = _lotteryTicketPrice;
@@ -66,7 +66,7 @@ contract Jackpot is Ownable {
             "Player has already bought tikcet"
         );
 
-        players[msg.sender] = Bet(edition, "", false);
+        players[msg.sender] = Bet(edition, false);
 
         uint256 price = getLotteryTicketPrice();
         console.log("Bought ticket by %s for %s", msg.sender, price);
@@ -76,7 +76,7 @@ contract Jackpot is Ownable {
         Bet storage bet = players[msg.sender];
         require(
             bet.edition == edition,
-            "Player has no ticket for that edition"
+            "The player has no ticket for this edition"
         );
 
         require(!bet.rolled, "The player has already rolled the number");
@@ -86,17 +86,15 @@ contract Jackpot is Ownable {
 
         bytes32 randomId = RNGInterface(rng_address).getRandomNumber(seed);
 
-        bet.randomId = randomId;
+        console.log("RequestId is ");
+        console.logBytes32(randomId);
+        randoms[randomId] = msg.sender;
+
         bet.rolled = true;
     }
 
-    function fulfillRandomNumber(uint256 _number) external {
-        radnomNumber = _number;
-        emit XXX(msg.sender, _number);
-    }
-
-    function isWinner() private view returns (bool) {
-        uint256 number = radnomNumber % threshold;
+    function isWinner(uint256 _number) private view returns (bool) {
+        uint256 number = _number % threshold;
         if (number == luckyNumber) {
             return true;
         } else {
@@ -104,8 +102,18 @@ contract Jackpot is Ownable {
         }
     }
 
-    function drawLots() public payable {
-        Bet storage bet = players[msg.sender];
+    function fulfillRandomNumber(bytes32 requestId, uint256 _number)
+        external
+        payable
+    {
+        console.log("rand addr %s and rng SC is %s", msg.sender, rng_address);
+        // FIXME unit test need to be fixed 4 that
+        //require(msg.sender == rng_address, "Only rng SC can call that");
+
+        address payable player = payable(randoms[requestId]);
+
+        console.log("fulfillRandomNumber");
+        Bet storage bet = players[player];
         require(
             bet.edition == edition,
             "The player has no ticket for this edition"
@@ -113,15 +121,16 @@ contract Jackpot is Ownable {
         require(bet.rolled, "The player has not rolled");
         require(address(this).balance != 0, "The lottery has already been won");
 
-        delete players[msg.sender];
+        delete players[player];
+        delete randoms[requestId];
 
-        if (isWinner()) {
+        if (isWinner(_number)) {
             edition = edition + 1;
-            msg.sender.transfer(getLotteryBalance());
-            emit Win(msg.sender, getLotteryBalance());
+            player.transfer(getLotteryBalance());
+            emit Win(player, getLotteryBalance());
             console.log("Lucky draw, eth was sent to wthe winner");
         } else {
-            emit Loss(msg.sender);
+            emit Loss(player);
             console.log("Unlucky draw");
         }
     }

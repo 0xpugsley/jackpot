@@ -42,14 +42,6 @@ npx hardhat compile
 npx hardhat test --network hardhat 
 ```
 
-### Generating abi
-
-JSON files will be placed in `./abi` directory.
-
-```sh
-npx hardhat run scripts/abi.js
-```
-
 ### Deploying - both contracts
 
 ```sh
