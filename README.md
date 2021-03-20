@@ -68,11 +68,3 @@ npx hardhat buy-ticket --contract insert-contract-address-here
 ```sh
 npx hardhat roll --contract insert-contract-address-here
 ```
-
-#### Drawing a lot
-
-If the draw is not be successfull the ticket will be gone.
-
-```sh
- npx hardhat draw-lot --contract insert-contract-address-here
-```

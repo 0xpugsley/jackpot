@@ -9,42 +9,44 @@ describe("Jackpot contract", function () {
   let addr1;
   let addr2;
   let addrs;
+  let randomContract;
   let randomMockContract;
+  let vrfCoordinatorContract;
+
 
   const price = ethers.constants.WeiPerEther;
   const threshold = 10;
 
+  const LINK_TOKEN_ADDR = "0xa36085F69e2889c224210F603D836748e7dC0088";
+  const VRF_COORDINATOR = "0xdD3782915140c8f3b190B5D67eAc6dc5760C46E9";
+  const VRF_FEE = "100000000000000000";
+  const VRF_KEYHASH =
+    "0x6c3699283bda56ad74f6b855546325b68d482e983852a7a82979cc4807b641f4";
+
   beforeEach(async function () {
     [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
 
-    const Jackpot = await ethers.getContractFactory("Jackpot", owner);
-    const RandomFactory = await ethers.getContractFactory("RandomKeccak", owner);
-    const randomContract = await RandomFactory.deploy();
+    const Jackpot = await ethers.getContractFactory("Jackpot");
+    const RandomFactory = await ethers.getContractFactory("RandomVRF");
+    const vrfCoordinatorFactory = await ethers.getContractFactory("VRFCoordinatorMock");
 
+    vrfCoordinatorContract = await vrfCoordinatorFactory.deploy(LINK_TOKEN_ADDR);
+    await vrfCoordinatorContract.deployed();
 
-    jackPotContract = await Jackpot.deploy(price, threshold);
-
-    await jackPotContract.deployed();
+    randomContract = await RandomFactory.deploy(vrfCoordinatorContract.address, LINK_TOKEN_ADDR,
+      VRF_KEYHASH, VRF_FEE);
     await randomContract.deployed();
-
-
-    await jackPotContract.setRngAddress(randomContract.address);
-    await randomContract.setJackpotAddress(jackPotContract.address);
-
-
     randomMockContract = await smockit(randomContract);
 
-    console.log("radom address ", randomMockContract.address);
+    jackPotContract = await Jackpot.deploy(price, threshold);
+    await jackPotContract.deployed();
 
-    randomMockContract.smocked.getRandomNumber.will.return.with(
+    await jackPotContract.connect(owner).setRngAddress(randomMockContract.address);
+    await randomMockContract.connect(owner).setJackpotAddress(jackPotContract.address);
+
+    randomMockContract.smocked.getRandomNumber.will.return.with(() =>
       ethers.utils.formatBytes32String("abc")
     );
-    randomMockContract.smocked.fulfillRandomness.will.return.with((id: string, rng: number) => {
-      jackPotContract.fulfillRandomNumber(id, rng);
-    }
-    );
-
-    await jackPotContract.setRngAddress(randomMockContract.address);
   });
 
   describe("Deployment", function () {
@@ -84,7 +86,10 @@ describe("Jackpot contract", function () {
 
       await jackPotContract.connect(addr1).buyTicket({ value: price });
       await jackPotContract.connect(addr1).roll();
-      await randomMockContract.connect(owner).fulfillRandomness(ethers.utils.formatBytes32String("abc"), threshold / 2);
+
+      await jackPotContract.connect(owner).setRngAddress(owner.address);
+      await jackPotContract.fulfillRandomNumber(ethers.utils.formatBytes32String("abc"), threshold / 2);
+
       const balance = await jackPotContract.getLotteryBalance();
       expect(balance).be.equal(0);
     });
@@ -92,7 +97,10 @@ describe("Jackpot contract", function () {
     it("Should not win the lottery", async function () {
       await jackPotContract.connect(addr1).buyTicket({ value: price });
       await jackPotContract.connect(addr1).roll();
-      await randomMockContract.connect(owner).fulfillRandomness(ethers.utils.formatBytes32String("abc"), 1);
+
+      await jackPotContract.connect(owner).setRngAddress(owner.address);
+      await jackPotContract.connect(owner).fulfillRandomNumber(ethers.utils.formatBytes32String("abc"), 1);
+
       const balance = await jackPotContract.getLotteryBalance();
       expect(balance).be.equal(price);
     });
@@ -102,7 +110,9 @@ describe("Jackpot contract", function () {
       await jackPotContract.connect(addr2).buyTicket({ value: price });
 
       await jackPotContract.connect(addr1).roll();
-      await randomMockContract.connect(owner).fulfillRandomness(ethers.utils.formatBytes32String("abc"), threshold / 2);
+
+      await jackPotContract.connect(owner).setRngAddress(owner.address);
+      await jackPotContract.connect(owner).fulfillRandomNumber(ethers.utils.formatBytes32String("abc"), threshold / 2);
       // addr1 wins
       expect(await jackPotContract.connect(addr2).edition()).be.equal(2);
     });

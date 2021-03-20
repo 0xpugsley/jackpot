@@ -86,8 +86,6 @@ contract Jackpot is Ownable {
 
         bytes32 randomId = RNGInterface(rng_address).getRandomNumber(seed);
 
-        console.log("RequestId is ");
-        console.logBytes32(randomId);
         randoms[randomId] = msg.sender;
 
         bet.rolled = true;
@@ -106,13 +104,10 @@ contract Jackpot is Ownable {
         external
         payable
     {
-        console.log("rand addr %s and rng SC is %s", msg.sender, rng_address);
-        // FIXME unit test need to be fixed 4 that
-        //require(msg.sender == rng_address, "Only rng SC can call that");
+        require(msg.sender == rng_address, "Only rng SC can call that");
 
         address payable player = payable(randoms[requestId]);
 
-        console.log("fulfillRandomNumber");
         Bet storage bet = players[player];
         require(
             bet.edition == edition,
