@@ -7,7 +7,7 @@
     "sourceMap": true,
     "noImplicitAny": false,
     "outDir": "./dist",
-    //   "strict": true,
+    "strict": true,
     "rootDirs": ["./src", "./test", "./artifacts"],
     "esModuleInterop": true,
     "preserveSymlinks": true

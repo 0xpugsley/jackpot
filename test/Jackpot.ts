@@ -2,16 +2,20 @@ import { smockit } from "@eth-optimism/smock";
 import "@nomiclabs/hardhat-waffle";
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { Jackpot } from "../typechain/Jackpot";
+import { RandomVrf } from "../typechain/RandomVrf";
+import { VrfCoordinatorMock } from "../typechain/VrfCoordinatorMock";
+
 
 describe("Jackpot contract", function () {
-  let jackPotContract;
+  let jackPotContract: Jackpot;
   let owner;
   let addr1;
   let addr2;
   let addrs;
-  let randomContract;
-  let randomMockContract;
-  let vrfCoordinatorContract;
+  let randomContract: RandomVrf;
+  let randomMockContract: RandomVrf;
+  let vrfCoordinatorContract: VrfCoordinatorMock;
 
 
   const price = ethers.constants.WeiPerEther;
@@ -26,19 +30,19 @@ describe("Jackpot contract", function () {
   beforeEach(async function () {
     [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
 
-    const Jackpot = await ethers.getContractFactory("Jackpot");
+    const jackpot = await ethers.getContractFactory("Jackpot");
     const RandomFactory = await ethers.getContractFactory("RandomVRF");
     const vrfCoordinatorFactory = await ethers.getContractFactory("VRFCoordinatorMock");
 
-    vrfCoordinatorContract = await vrfCoordinatorFactory.deploy(LINK_TOKEN_ADDR);
+    vrfCoordinatorContract = (await vrfCoordinatorFactory.deploy(LINK_TOKEN_ADDR)) as VrfCoordinatorMock;
     await vrfCoordinatorContract.deployed();
 
-    randomContract = await RandomFactory.deploy(vrfCoordinatorContract.address, LINK_TOKEN_ADDR,
-      VRF_KEYHASH, VRF_FEE);
+    randomContract = (await RandomFactory.deploy(vrfCoordinatorContract.address, LINK_TOKEN_ADDR,
+      VRF_KEYHASH, VRF_FEE)) as RandomVrf;
     await randomContract.deployed();
     randomMockContract = await smockit(randomContract);
 
-    jackPotContract = await Jackpot.deploy(price, threshold);
+    jackPotContract = (await jackpot.deploy(price, threshold)) as Jackpot;
     await jackPotContract.deployed();
 
     await jackPotContract.connect(owner).setRngAddress(randomMockContract.address);

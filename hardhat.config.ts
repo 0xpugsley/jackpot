@@ -1,6 +1,7 @@
 import "@eth-optimism/smock/build/src/plugins/hardhat-storagelayout";
 import "@nomiclabs/hardhat-waffle";
 import "hardhat-deploy";
+import "hardhat-typechain";
 import { HardhatUserConfig } from "hardhat/types";
 import "./scripts/tasks";
 
@@ -17,8 +18,8 @@ const config: HardhatUserConfig = {
       },
     },
     kovan: {
-      url: process.env.KOVAN_RPC_URL,
-      accounts: [process.env.PRIVATE_KEY],
+      url: String(process.env.KOVAN_RPC_URL),
+      accounts: [String(process.env.PRIVATE_KEY)],
       saveDeployments: true,
     },
   },
