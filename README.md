@@ -24,7 +24,7 @@ Default netowrk: `kovan`
 
 [Set environmental variables](https://github.com/pappas999/chainlink-hardhat-box/blob/main/README.md#installation):
 
-```sh
+```bash
 export KOVAN_RPC_URL='www.infura.io/asdfadsfafdadf'
 export PRIVATE_KEY='abcdef'
 export ALCHEMY_MAINNET_RPC_URL="https://eth-mainnet.alchemyapi.io/v2/your-api-key"
